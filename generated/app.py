@@ -45,4 +45,5 @@ def play_screen(campaign_id):
     return render_template('play_screen.html', chat_history=chat_history)
 
 if __name__ == '__main__':
+    database.main()
     app.run(debug=True)
