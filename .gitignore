@@ -1,8 +1,2 @@
-.env
-__pycache__
-.vscode
-# Ignore everything in the generated directory
-/generated/*
-
-# Don't ignore .png files in the generated directory
-!/generated/*.png
+.venv
+.DS_STORE
