@@ -8,30 +8,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const continueCharacterCreation = document.getElementById("continue_character_creation");
   const chatInput = document.getElementById("chat_input");
 
-  playButton.addEventListener("click", () => {
+  playButton?.addEventListener("click", () => {
     window.location.href = "/game";
   });
 
-  newCampaignButton.addEventListener("click", () => {
+  newCampaignButton?.addEventListener("click", () => {
     window.location.href = "/new_campaign";
   });
 
-  submitCampaign.addEventListener("click", () => {
+  submitCampaign?.addEventListener("click", () => {
     const campaignDescription = document.getElementById("campaign_description").value;
     if (campaignDescription.trim() !== "") {
       window.location.href = `/character_list?description=${encodeURIComponent(campaignDescription)}`;
     }
   });
 
-  addCharacterButton.addEventListener("click", () => {
+  console.log("listen for add character button click");
+  addCharacterButton?.addEventListener("click", () => {
+    console.log("hello add character");
     window.location.href = "/character_creation";
   });
 
-  continueCharacters.addEventListener("click", () => {
+  continueCharacters?.addEventListener("click", () => {
     window.location.href = "/play";
   });
 
-  rollCharacterButton.addEventListener("click", async () => {
+  rollCharacterButton?.addEventListener("click", async () => {
     const response = await fetch("/api/roll_character");
     const characterData = await response.json();
     document.getElementById("character_role").innerText = characterData.role;
@@ -42,11 +44,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("character_inventory").innerText = characterData.inventory.join(", ");
   });
 
-  continueCharacterCreation.addEventListener("click", () => {
+  continueCharacterCreation?.addEventListener("click", () => {
     window.location.href = "/character_list";
   });
 
-  chatInput.addEventListener("keydown", async (event) => {
+  chatInput?.addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
       const message = chatInput.value.trim();
       if (message !== "") {

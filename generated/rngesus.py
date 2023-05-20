@@ -1,5 +1,8 @@
+from database import CreateCharacter, Campaign
 import openai
 import os
+from typing import List
+import random
 
 # TODO - refactor to use guidance library, and suggest interdependencies and templates for making the 
 # prompts more complex
@@ -8,7 +11,7 @@ import os
 
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
-def prompt(question):
+def prompt(question: str) -> str:
     response = openai.Completion.create(
         engine="davinci-codex",
         prompt=question,
@@ -20,11 +23,24 @@ def prompt(question):
 
     return response.choices[0].text.strip()
 
-def generate_character_role():
-    return prompt("Generate a random character role for an RPG game")
+def roll_character(campaign: Campaign) -> CreateCharacter:
+    role = random.choice(campaign.character_roles)
+    type = random.choice(campaign.character_types)
+    return CreateCharacter(
+        campaign_id=campaign.id,
+        role=role,
+        type=type,
+        backstory=generate_character_backstory(),
+        attributes=generate_attribute_scores(),
+        primary_goal=generate_primary_goal(),
+        inventory=generate_inventory_items(),
+    )
 
-def generate_character_type():
-    return prompt("Generate a random character type for an RPG game")
+def generate_character_roles() -> List[str]:
+    return [prompt("Generate a random character role for an RPG game") for _ in range(6)]
+
+def generate_character_type() -> List[str]:
+    return [prompt("Generate a random character type for an RPG game") for _ in range(6)]
 
 def generate_character_backstory():
     return prompt("Generate a character backstory for an RPG game")
