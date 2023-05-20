@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character List</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Character List</h1>
+    <div id="character_tiles">
+        {% for character in characters %}
+            <div class="character_tile">
+                <h3>{{ character.name }}</h3>
+                <button class="remove_character" data-character-id="{{ character.id }}">x</button>
+            </div>
+        {% endfor %}
+    </div>
+    <button id="add_character_button">Add New Character</button>
+    <button id="continue_characters">Continue with Current Characters</button>
+    <script src="/static/scripts.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Screen</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div id="chat_interface">
+        <h1>AI Dungeon Master</h1>
+        <div id="chat_history">
+            {% for chat in chat_history %}
+                <p><strong>{{ chat.user_type }}:</strong> {{ chat.message }}</p>
+            {% endfor %}
+        </div>
+        <form action="/send_message" method="post">
+            <input type="text" id="chat_input" name="chat_input" placeholder="Type your action here...">
+            <button type="submit">Send</button>
+        </form>
+    </div>
+</body>
+</html>

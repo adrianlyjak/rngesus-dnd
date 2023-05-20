@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Screen</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Welcome to RNGesus</h1>
+    <h2>Past Campaigns</h2>
+    <ul id="past_campaigns">
+        {% for campaign in campaigns %}
+            <li><a href="{{ url_for('play_screen', campaign_id=campaign.id) }}">{{ campaign.description }}</a></li>
+        {% endfor %}
+    </ul>
+    <button id="new_campaign_button" onclick="location.href='{{ url_for('new_campaign') }}'">Start a New Campaign</button>
+    <script src="/static/scripts.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Campaign</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Create a New Campaign</h1>
+    <form action="/new_campaign" method="post">
+        <label for="campaign_description">Describe the type of RPG game (e.g. classic, futuristic, funny, etc.):</label>
+        <input type="text" id="campaign_description" name="campaign_description" required>
+        <button type="submit" id="submit_campaign">Submit</button>
+    </form>
+    <a href="/game">Back to Game Screen</a>
+</body>
+</html>
