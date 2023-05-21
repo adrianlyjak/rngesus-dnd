@@ -23,7 +23,7 @@ Shared dependencies:
    - add_character_button (Character list)
    - continue_characters (Character list)
    - roll_character_button (Character Creation)
-   - character_role (Character Creation)
+   - character_class (Character Creation)
    - character_type (Character Creation)
    - character_backstory (Character Creation)
    - character_attributes (Character Creation)

@@ -5,7 +5,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const addCharacterButton = document.getElementById("add_character_button");
   const continueCharacters = document.getElementById("continue_characters");
   const rollCharacterButton = document.getElementById("roll_character_button");
-  const continueCharacterCreation = document.getElementById("continue_character_creation");
   const chatInput = document.getElementById("chat_input");
 
   playButton?.addEventListener("click", () => {
@@ -23,31 +22,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  console.log("listen for add character button click");
   addCharacterButton?.addEventListener("click", () => {
-    console.log("hello add character");
-    window.location.href = "/character_creation";
+    let paths = window.location.pathname.split("/")
+    let path = paths[paths.length - 1];
+    window.location.href = "/character_creation/" + path;
   });
 
   continueCharacters?.addEventListener("click", () => {
     window.location.href = "/play";
   });
 
+
   rollCharacterButton?.addEventListener("click", async () => {
-    const response = await fetch("/api/roll_character");
+    let paths = window.location.pathname.split("/")
+    let path = paths[paths.length - 1];
+    const response = await fetch("/api/roll_character/" + encodeURIComponent(path));
     const characterData = await response.json();
-    document.getElementById("character_role").innerText = characterData.role;
-    document.getElementById("character_type").innerText = characterData.type;
-    document.getElementById("character_backstory").value = characterData.backstory;
-    document.getElementById("character_attributes").innerText = characterData.attributes.join(", ");
-    document.getElementById("character_primary_goal").value = characterData.primary_goal;
-    document.getElementById("character_inventory").innerText = characterData.inventory.join(", ");
+    let characterContainer = document.getElementById("character");
+    characterContainer.innerText = JSON.stringify(characterData, null, 2);
+    let hidden = document.getElementById("characterHidden");
+    hidden.value = JSON.stringify(characterData);
   });
 
-  continueCharacterCreation?.addEventListener("click", () => {
-    window.location.href = "/character_list";
-  });
-
+  
   chatInput?.addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
       const message = chatInput.value.trim();

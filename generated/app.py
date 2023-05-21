@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database import CreateCampaign
+from database import CreateCampaign, CreateCharacter
 from typing import List, Optional, Tuple
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, g
@@ -52,7 +52,7 @@ def new_campaign(db_conn: sqlite3.Connection) -> str:
     if request.method == "POST":
         description: Optional[str] = request.form["campaign_description"]
         if description:
-            create = rngesus.generate_campaign()
+            create = rngesus.generate_campaign(description)
             id = database.create_campaign(
                 create,
                 db_conn,
@@ -65,9 +65,10 @@ def new_campaign(db_conn: sqlite3.Connection) -> str:
 @with_db_conn
 def character_list(campaign_id: int, db_conn: sqlite3.Connection) -> str:
     if request.method == "POST":
-        return redirect(url_for("character_creation"))
+        return redirect(url_for("character_creation", campaign_id=campaign_id))
+    campaign = database.get_campaign(campaign_id, db_conn)
     characters = database.get_characters(campaign_id, db_conn)
-    return render_template("character_list.html", characters=characters)
+    return render_template("character_list.html", characters=characters, campaign=campaign)
 
 
 @app.route("/api/roll_character/<int:campaign_id>")
@@ -79,13 +80,14 @@ def roll_character(campaign_id: int, db_conn: sqlite3.Connection) -> str:
     return rngesus.roll_character(camp).json()
 
 
-@app.route("/character_creation", methods=["GET", "POST"])
+@app.route("/character_creation/<int:campaign_id>", methods=["GET", "POST"])
 @with_db_conn
-def character_creation(db_conn: sqlite3.Connection) -> str:
+def character_creation(campaign_id: int, db_conn: sqlite3.Connection) -> str:
+    print(request.method)
     if request.method == "POST":
-        character = rngesus.roll_character()
+        character = CreateCharacter.parse_raw(request.form["character"])
         database.create_character(character, db_conn)
-        return redirect(url_for("character_list"))
+        return redirect(url_for("character_list", campaign_id=campaign_id))
     return render_template("character_creation.html")
 
 

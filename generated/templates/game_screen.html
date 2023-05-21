@@ -11,7 +11,7 @@
     <h2>Past Campaigns</h2>
     <ul id="past_campaigns">
         {% for campaign in campaigns %}
-            <li><a href="{{ url_for('play_screen', campaign_id=campaign.id) }}">{{ campaign.description }}</a></li>
+            <li><a href="{{ url_for('character_list', campaign_id=campaign.id) }}">{{ campaign.title }}</a></li>
         {% endfor %}
     </ul>
     <button id="new_campaign_button" onclick="location.href='{{ url_for('new_campaign') }}'">Start a New Campaign</button>

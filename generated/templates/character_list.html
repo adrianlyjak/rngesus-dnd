@@ -7,7 +7,25 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
-    <h1>Character List</h1>
+    <h1>{{ campaign.title }}</h1>
+    <article>{{ campaign.description }}</article>
+    <div>
+        <strong>Classes</strong>
+        <ul>
+        {% for class in campaign.character_classes %}
+            <li>{{ class }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    <div>
+        <strong>Types</strong>
+        <ul>
+        {% for type in campaign.character_types %}
+            <li>{{ type }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    <h2>Character List</h1>
     <div id="character_tiles">
         {% for character in characters %}
             <div class="character_tile">

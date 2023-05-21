@@ -1,14 +1,16 @@
 import sqlite3
 from sqlite3 import Error
-from typing import List, Dict
+from typing import List, Dict, Optional
 from pydantic import BaseModel
 import json
 
 
+
 class CreateCampaign(BaseModel):
+    title: str
     description: str
     character_classes: List[str]
-    character_races: List[str]
+    character_types: List[str]
 
 
 class Campaign(CreateCampaign):
@@ -17,8 +19,9 @@ class Campaign(CreateCampaign):
 
 class CreateCharacter(BaseModel):
     campaign_id: int
-    role: str
-    type: str
+    name: Optional[str]
+    character_class: str
+    character_type: str
     backstory: str
     attributes: Dict[str, int]
     primary_goal: str
@@ -50,10 +53,10 @@ def create_table(create_table_sql: str, conn: sqlite3.Connection) -> None:
 
 
 def create_campaign(campaign: CreateCampaign, conn: sqlite3.Connection) -> int:
-    sql = """INSERT INTO campaigns(description, character_classes, character_races) VALUES(?, ?, ?)"""
+    sql = """INSERT INTO campaigns(title, description, character_classes, character_types) VALUES(?, ?, ?, ?)"""
     cur = conn.cursor()
     cur.execute(
-        sql, (campaign.description, campaign.character_classes, campaign.character_races)
+        sql, (campaign.title, campaign.description, json.dumps(campaign.character_classes), json.dumps(campaign.character_types))
     )
     conn.commit()
     return cur.lastrowid
@@ -62,7 +65,7 @@ def create_campaign(campaign: CreateCampaign, conn: sqlite3.Connection) -> int:
 def get_campaign(id: int, conn: sqlite3.Connection) -> Campaign:
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, description, character_classes, character_races FROM campaigns WHERE id = ?",
+        "SELECT id, title, description, character_classes, character_types FROM campaigns WHERE id = ?",
         (id,),
     )
     row = cur.fetchone()
@@ -73,9 +76,10 @@ def _parse_campaign(row: sqlite3.Row) -> Campaign:
     return Campaign.parse_obj(
         {
             "id": row[0],
-            "description": row[1],
-            "character_classes": json.loads(row[2]),
-            "character_races": json.loads(row[3]),
+            "title": row[1],
+            "description": row[2],
+            "character_classes": json.loads(row[3]),
+            "character_types": json.loads(row[4]),
         }
     )
 
@@ -83,7 +87,7 @@ def _parse_campaign(row: sqlite3.Row) -> Campaign:
 def get_campaigns(conn: sqlite3.Connection) -> List[Campaign]:
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, description, character_classes, character_races FROM campaigns"
+        "SELECT id, title, description, character_classes, character_types FROM campaigns"
     )
     rows = cur.fetchall()
     return [_parse_campaign(row) for row in rows]
@@ -97,18 +101,19 @@ def delete_campaign(id: int, conn: sqlite3.Connection) -> None:
 
 
 def create_character(character: CreateCharacter, conn: sqlite3.Connection) -> int:
-    sql = """INSERT INTO characters(campaign_id, role, type, backstory, attributes, primary_goal, inventory) VALUES(?, ?, ?, ?, ?, ?, ?)"""
+    sql = """INSERT INTO characters(campaign_id, name, character_class, character_type, backstory, attributes, primary_goal, inventory) VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
     cur = conn.cursor()
     cur.execute(
         sql,
         (
             character.campaign_id,
-            character.role,
-            character.type,
+            character.name,
+            character.character_class,
+            character.character_type,
             character.backstory,
-            character.attributes,
+            json.dumps(character.attributes),
             character.primary_goal,
-            character.inventory,
+            json.dumps(character.inventory),
         ),
     )
     conn.commit()
@@ -117,35 +122,37 @@ def create_character(character: CreateCharacter, conn: sqlite3.Connection) -> in
 
 def get_characters(campaign_id: int, conn: sqlite3.Connection) -> List[Character]:
     cur = conn.cursor()
-    cur.execute("SELECT * FROM characters WHERE campaign_id = ?", (campaign_id,))
+    cur.execute("SELECT id, name, campaign_id, character_class, character_type, backstory, attributes, primary_goal, inventory FROM characters WHERE campaign_id = ?", (campaign_id,))
     rows = cur.fetchall()
     return [
         Character(
             id=row[0],
-            campaign_id=row[1],
-            role=row[2],
-            type=row[3],
-            backstory=row[4],
-            attributes=row[5],
-            primary_goal=row[6],
-            inventory=row[7],
+            name=row[1],
+            campaign_id=row[2],
+            character_class=row[3],
+            character_type=row[4],
+            backstory=row[5],
+            attributes=json.loads(row[6]),
+            primary_goal=row[7],
+            inventory=json.loads(row[8]),
         )
         for row in rows
     ]
 
 
 def update_character(character: Character, conn: sqlite3.Connection) -> None:
-    sql = """UPDATE characters SET role = ?, type = ?, backstory = ?, attributes = ?, primary_goal = ?, inventory = ? WHERE id = ?"""
+    sql = """UPDATE characters SET name = ?, charactoer_class = ?, charactoer_type = ?, backstory = ?, attributes = ?, primary_goal = ?, inventory = ? WHERE id = ?"""
     cur = conn.cursor()
     cur.execute(
         sql,
         (
-            character.role,
-            character.type,
+            character.name,
+            character.character_class,
+            character.character_type,
             character.backstory,
-            character.attributes,
+            json.dumps(character.attributes),
             character.primary_goal,
-            character.inventory,
+            json.dumps(character.inventory),
             character.id,
         ),
     )
@@ -185,16 +192,18 @@ def get_chat_history(campaign_id: int, conn: sqlite3.Connection) -> List[ChatMes
 def main() -> None:
     sql_create_campaigns_table: str = """CREATE TABLE IF NOT EXISTS campaigns (
                                         id INTEGER PRIMARY KEY,
+                                        title TEXT NOT NULL,
                                         description TEXT NOT NULL,
                                         character_classes TEXT NOT NULL,
-                                        character_races TEXT NOT NULL
+                                        character_types TEXT NOT NULL
                                     );"""
 
     sql_create_characters_table: str = """CREATE TABLE IF NOT EXISTS characters (
                                         id INTEGER PRIMARY KEY,
                                         campaign_id INTEGER NOT NULL,
-                                        role TEXT NOT NULL,
-                                        type TEXT NOT NULL,
+                                        name TEXt,
+                                        character_class TEXT NOT NULL,
+                                        character_type TEXT NOT NULL,
                                         backstory TEXT,
                                         attributes TEXT,
                                         primary_goal TEXT,
