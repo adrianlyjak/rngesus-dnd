@@ -52,14 +52,9 @@ def new_campaign(db_conn: sqlite3.Connection) -> str:
     if request.method == "POST":
         description: Optional[str] = request.form["campaign_description"]
         if description:
-            types = rngesus.generate_character_types()
-            roles = rngesus.generate_character_roles()
+            create = rngesus.generate_campaign()
             id = database.create_campaign(
-                CreateCampaign(
-                    description=description,
-                    character_roles=roles,
-                    character_types=types,
-                ),
+                create,
                 db_conn,
             )
             return redirect(url_for("character_list", campaign_id=id))
@@ -102,4 +97,4 @@ def play_screen(campaign_id: int, db_conn: sqlite3.Connection) -> str:
 
 if __name__ == "__main__":
     database.main()
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

@@ -7,8 +7,8 @@ import json
 
 class CreateCampaign(BaseModel):
     description: str
-    character_roles: List[str]
-    character_types: List[str]
+    character_classes: List[str]
+    character_races: List[str]
 
 
 class Campaign(CreateCampaign):
@@ -45,18 +45,15 @@ def create_connection() -> sqlite3.Connection:
 
 
 def create_table(create_table_sql: str, conn: sqlite3.Connection) -> None:
-    try:
-        c = conn.cursor()
-        c.execute(create_table_sql)
-    except Error as e:
-        print(e)
+    c = conn.cursor()
+    c.execute(create_table_sql)
 
 
 def create_campaign(campaign: CreateCampaign, conn: sqlite3.Connection) -> int:
-    sql = """INSERT INTO campaigns(description, character_roles, character_types) VALUES(?)"""
+    sql = """INSERT INTO campaigns(description, character_classes, character_races) VALUES(?, ?, ?)"""
     cur = conn.cursor()
     cur.execute(
-        sql, (campaign.description, campaign.character_roles, campaign.character_types)
+        sql, (campaign.description, campaign.character_classes, campaign.character_races)
     )
     conn.commit()
     return cur.lastrowid
@@ -65,7 +62,7 @@ def create_campaign(campaign: CreateCampaign, conn: sqlite3.Connection) -> int:
 def get_campaign(id: int, conn: sqlite3.Connection) -> Campaign:
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, description, character_roles, character_types FROM campaigns WHERE id = ?",
+        "SELECT id, description, character_classes, character_races FROM campaigns WHERE id = ?",
         (id,),
     )
     row = cur.fetchone()
@@ -77,8 +74,8 @@ def _parse_campaign(row: sqlite3.Row) -> Campaign:
         {
             "id": row[0],
             "description": row[1],
-            "character_roles": json.loads(row[2]),
-            "character_types": json.loads(row[3]),
+            "character_classes": json.loads(row[2]),
+            "character_races": json.loads(row[3]),
         }
     )
 
@@ -86,7 +83,7 @@ def _parse_campaign(row: sqlite3.Row) -> Campaign:
 def get_campaigns(conn: sqlite3.Connection) -> List[Campaign]:
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, description, character_roles, character_types FROM campaigns"
+        "SELECT id, description, character_classes, character_races FROM campaigns"
     )
     rows = cur.fetchall()
     return [_parse_campaign(row) for row in rows]
@@ -189,6 +186,8 @@ def main() -> None:
     sql_create_campaigns_table: str = """CREATE TABLE IF NOT EXISTS campaigns (
                                         id INTEGER PRIMARY KEY,
                                         description TEXT NOT NULL,
+                                        character_classes TEXT NOT NULL,
+                                        character_races TEXT NOT NULL
                                     );"""
 
     sql_create_characters_table: str = """CREATE TABLE IF NOT EXISTS characters (
