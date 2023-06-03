@@ -2,3 +2,6 @@
 .DS_STORE
 .env
 __pycache__
+
+# where are these files coming from??
+log.txt

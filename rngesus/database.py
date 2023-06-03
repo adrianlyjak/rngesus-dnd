@@ -42,7 +42,7 @@ class Chat(SQLModel, table=True):
     message: str
 
 
-def create_campaign(campaign: Campaign) -> Campaign:
+def upsert_campaign(campaign: Campaign) -> Campaign:
     with Session(engine) as session:
         session.add(campaign)
         session.commit()

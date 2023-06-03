@@ -3,7 +3,10 @@ sqlmodel==0.0.8
 
 gunicorn==20.1.0
 python-dotenv==1.0.0
-guidance==0.0.50
+guidance==0.0.61
+
+fastapi==0.96.0
+uvicorn==0.22.0
 
 # dev stuff
-ipykernel
+ipykernelprisma==0.8.2

@@ -1,11 +1,13 @@
-import json
 import os
 import random
-from typing import List
+import re
+import time
+from typing import AsyncIterator, Dict, List
 
 import guidance
 import openai
-from database import Campaign, Character
+
+from .database import Campaign, Character
 
 from dotenv import load_dotenv
 
@@ -26,9 +28,8 @@ def prompt(question: str) -> str:
     return response.choices[0].message.content
 
 
-
 gen_char = guidance(
-'''
+    '''
 {{#system~}}
 You are the dungeon master of an RPG game.
 
@@ -207,58 +208,54 @@ Write a paragraph of the things that you might forget, (title, setting, story, m
 )
 
 
-def generate_campaign_raw(prompt: str) -> guidance.Program:
-    # TODO - figure out some mechanism to stream the campaign to the UI with async mode
+def generate_campaign_raw(prompt: str) -> AsyncIterator[Dict[str, any]]:
     return gen_campaign(
-        prompt=prompt, class_count=2, type_count=2, attribute_count=2, async_mode=False
+        prompt=prompt,
+        class_count=2,
+        type_count=2,
+        attribute_count=2,
+        async_mode=True,
+        stream=True,
+        silent=True,
     )
 
 
-def generate_campaign(prompt: str) -> Campaign:
-    generated = generate_campaign_raw(prompt)
+async def generate_campaign(
+    prompt: str, update_frequency_seconds: int = 5
+) -> AsyncIterator[Campaign]:
+    generator = generate_campaign_raw(prompt)
+    last = None
+    result = None
+    async for generated in generator:
+        result = result_to_campaign(generated)
+        if last is None or (time.time() - last) > update_frequency_seconds:
+            last = time.time()
+            yield result
+    yield result
+
+
+def result_to_campaign(generated: Dict[str, any]) -> Campaign:
     return Campaign(
-        title=generated["title"].replace('"', ""),
-        description=generated["description"].replace('"', "")
+        title=(generated.get("title") or "").replace('"', ""),
+        description=(generated.get("description") or "").replace('"', "")
         + "\n"
-        + generated["story"]
+        + (generated.get("story") or "")
         + "\n"
-        + generated["mechanics"]
+        + (generated.get("mechanics") or "")
         + "\n"
-        + "\n".join(generated["mechanics_continued"]),
-        summary=generated["summary"],
-        character_classes=generated["character_classes"].split(", "),
-        character_types=generated["character_types"].split(", "),
-        attributes=generated["character_attributes"].split(", "),
+        + "\n".join(generated.get("mechanics_continued") or []),
+        summary=(generated.get("summary") or ""),
+        character_classes=parse_comma_delimited_list(
+            (generated.get("character_classes") or "")
+        ),
+        character_types=parse_comma_delimited_list(
+            (generated.get("character_types") or "")
+        ),
+        attributes=parse_comma_delimited_list(
+            (generated.get("character_attributes") or "")
+        ),
     )
 
 
-def generate_character_backstory():
-    return prompt("Generate a character backstory for an RPG game")
-
-
-def generate_attribute_scores():
-    scores = prompt("Generate a set of 6 attribute scores for an RPG character")
-    return [int(score) for score in scores.split(",")]
-
-
-def generate_primary_goal():
-    return prompt("Generate a primary goal for an RPG character")
-
-
-def generate_inventory_items():
-    items = prompt("Generate a list of inventory items for an RPG character")
-    return items.split(",")
-
-
-def generate_campaign_concept(context):
-    return prompt(f"Generate a concept for an RPG game set in {context}")
-
-
-def generate_scene_description():
-    return prompt("Generate a scene description for an RPG game")
-
-
-def generate_ai_response(player_action):
-    return prompt(
-        f"AI Dungeon Master, how do you respond to the player's action: {player_action}"
-    )
+def parse_comma_delimited_list(s: str) -> List[str]:
+    return [re.sub("\.$", "", x) for x in s.split(",")]
