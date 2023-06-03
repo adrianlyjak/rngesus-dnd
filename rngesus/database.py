@@ -113,6 +113,4 @@ def get_chat_history(campaign_id: int) -> List[ChatMessage]:
 
 def main() -> None:
     SQLModel.metadata.create_all(engine)
-    with engine.connect() as conn:
-        conn.execute(f"ALTER TABLE {Campaign.__table__.name} ADD COLUMN attributes VARCHAR(255);")
 

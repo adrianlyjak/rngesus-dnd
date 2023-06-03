@@ -2,12 +2,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from functools import wraps
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import database
-import rngesus
 from flask import Flask, g, redirect, render_template, request, url_for
+
+import rngesus
 
 app = Flask(__name__)
 
@@ -42,7 +42,9 @@ def character_list(campaign_id: int) -> str:
         return redirect(url_for("character_creation", campaign_id=campaign_id))
     campaign = database.get_campaign(campaign_id)
     characters = database.get_characters(campaign_id)
-    return render_template("character_list.html", characters=characters, campaign=campaign)
+    return render_template(
+        "character_list.html", characters=characters, campaign=campaign
+    )
 
 
 @app.route("/api/roll_character/<int:campaign_id>")
