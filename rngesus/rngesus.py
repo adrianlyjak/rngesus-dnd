@@ -77,7 +77,7 @@ Influence: 18, Power: 12,
 
 {{/user~}}
 {{#assistant~}}
-{{gen 'attributes' max_tokens=50 temperature=0.1}}
+{{gen 'attribute_results' max_tokens=50 temperature=0.1}}
 {{/assistant~}}
 {{#user~}}
 Now, list the inventory as a comma delimited list. Don't give me too many things, I need to save room for later acquisitions!
@@ -91,7 +91,9 @@ Respond with just the items separated by commas. For example: "Water Bottle, Swo
 )
 
 
-def roll_character(campaign: Campaign) -> Character:
+async def roll_character(
+    campaign: Campaign, update_frequency_seconds: int = 1
+) -> AsyncIterator[Character]:
     character_class = random.choice(campaign.character_classes)
     character_type = random.choice(campaign.character_types)
     program = gen_char(
@@ -99,22 +101,42 @@ def roll_character(campaign: Campaign) -> Character:
         attributes=", ".join(campaign.attributes),
         character_class=character_class,
         character_type=character_type,
+        async_mode=True,
+        stream=True,
+        silent=True,
+    )
+    result = None
+    last = None
+    async for state in program:
+        result = result_to_character(campaign.id, state)
+        now = time.time()
+        if last is None or now - last > update_frequency_seconds:
+            last = now
+            yield result
+    yield result
+
+
+def result_to_character(campaign_id: int, program: Dict[str, any]) -> Character:
+    attributes = parse_int_kv_dict(program.get("attribute_results") or "")
+    return Character(
+        name=program.get("name") or "",
+        campaign_id=campaign_id,
+        character_class=program.get("character_class") or "",
+        character_type=program.get("character_type") or "",
+        backstory=program.get("backstory") or "",
+        attributes=attributes,
+        primary_goal=program.get("primary_goal") or "",
+        inventory=parse_comma_delimited_list(program.get("inventory") or ""),
     )
 
-    attributes = [xs.split(": ") for xs in program["attributes"].split(",")]
-    attributes = {
-        (k.strip()): int("".join(filter(str.isdigit, v))) for [k, v] in attributes
+
+def parse_int_kv_dict(kv_list: str) -> Dict[str, int]:
+    as_list = parse_comma_delimited_list(kv_list)
+    split_list = [[y.strip() for y in x.split(":")] for x in as_list]
+    cleaned_split = {
+        x[0]: int(x[1]) for x in split_list if len(x) == 2 and re.match(r"^\d+$", x[1])
     }
-    return Character(
-        name=program["name"],
-        campaign_id=campaign.id,
-        character_class=program["character_class"],
-        character_type=program["character_type"],
-        backstory=program["backstory"],
-        attributes=attributes,
-        primary_goal=program["primary_goal"],
-        inventory=program["inventory"].split(", "),
-    )
+    return cleaned_split
 
 
 gen_campaign = guidance(
@@ -198,8 +220,8 @@ continue
 {{/assistant~}}
 {{/geneach}}
 {{#user~}}
-You will need a reminder for yourself to remember what this game is about and how the game works.
-Write a paragraph of the things that you might forget, (title, setting, story, mechanics)
+Write a reminder that can later be referred to in order to remember this game.
+Write a paragraph of the things that are uniqe to this game, (title, setting, story, mechanics)
 {{/user~}}
 {{#assistant~}}
 {{gen 'summary' temperature=0.9}}
@@ -228,8 +250,9 @@ async def generate_campaign(
     result = None
     async for generated in generator:
         result = result_to_campaign(generated)
-        if last is None or (time.time() - last) > update_frequency_seconds:
-            last = time.time()
+        now = time.time()
+        if last is None or (now - last > update_frequency_seconds):
+            last = now
             yield result
     yield result
 
@@ -258,4 +281,4 @@ def result_to_campaign(generated: Dict[str, any]) -> Campaign:
 
 
 def parse_comma_delimited_list(s: str) -> List[str]:
-    return [re.sub("\.$", "", x) for x in s.split(",")]
+    return [re.sub("\.$", "", x.strip()) for x in s.split(",")]

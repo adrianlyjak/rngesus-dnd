@@ -1,52 +1,34 @@
-from typing import List, Dict, Optional
-from sqlmodel import JSON, Column, SQLModel, Field, create_engine, Session
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel
+from sqlmodel import JSON, Column, Field, Session, SQLModel, create_engine, select
 
+from .models import (
+    Campaign,
+    CampaignSummary,
+    CampaignSummaryTuple,
+    Character,
+    CharacterSummary,
+    CharacterSummaryTuple,
+    Chat,
+    campaign_summary,
+    character_summary,
+)
 
-engine = create_engine("sqlite:///rngesus.db")
-
-
-
-class Campaign(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    title: str
-    description: str
-    summary: str
-    character_classes: List[str] = Field(sa_column=Column(JSON))
-    character_types: List[str] = Field(sa_column=Column(JSON))
-    attributes: List[str] = Field(sa_column=Column(JSON))
-
-
-class Character(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    campaign_id: int
-    name: Optional[str]
-    character_class: str
-    character_type: str
-    backstory: str
-    attributes: Dict[str, int] = Field(sa_column=Column(JSON))
-    primary_goal: str
-    inventory: List[str] = Field(sa_column=Column(JSON))
-
-
-class ChatMessage(BaseModel):
-    campaign_id: int
-    user_type: str
-    message: str
-
-
-class Chat(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    campaign_id: int
-    user_type: str
-    message: str
+engine = create_engine("sqlite:///rngesus.db", echo=True)
 
 
 def upsert_campaign(campaign: Campaign) -> Campaign:
     with Session(engine) as session:
-        session.add(campaign)
-        session.commit()
-        session.refresh(campaign)
+        if campaign.id:
+            session.query(Campaign).filter(Campaign.id == campaign.id).update(
+                campaign.dict()
+            )
+            session.commit()
+        else:
+            session.add(campaign)
+            session.commit()
+            session.refresh(campaign)
     return campaign
 
 
@@ -56,10 +38,10 @@ def get_campaign(id: int) -> Optional[Campaign]:
         return campaign
 
 
-def get_campaigns() -> List[Campaign]:
+def get_campaign_summaries() -> List[CampaignSummary]:
     with Session(engine) as session:
-        campaigns = session.query(Campaign).all()
-        return campaigns
+        campaigns = session.exec(select(*CampaignSummaryTuple)).all()
+        return [campaign_summary(tuple) for tuple in campaigns]
 
 
 def delete_campaign(id: int) -> None:
@@ -69,18 +51,41 @@ def delete_campaign(id: int) -> None:
         session.commit()
 
 
-def create_character(character: Character) -> Character:
+def upsert_character(character: Character) -> Character:
     with Session(engine) as session:
-        session.add(character)
-        session.commit()
-        session.refresh(character)
+        if character.id:
+            session.query(Character).filter(Character.id == character.id).update(
+                character.dict()
+            )
+            session.commit()
+        else:
+            session.add(character)
+            session.commit()
+            session.refresh(character)
     return character
 
 
-def get_characters(campaign_id: int) -> List[Character]:
+def get_character_summaries(campaign_id: int) -> List[CharacterSummary]:
     with Session(engine) as session:
-        characters = session.query(Character).filter(Character.campaign_id == campaign_id).all()
-        return characters
+        tuples = (
+            session.query(*CharacterSummaryTuple)
+            .filter(Character.campaign_id == campaign_id)
+            .all()
+        )
+        return [character_summary(tuple) for tuple in tuples]
+
+
+def get_character(id: int) -> Optional[Character]:
+    with Session(engine) as session:
+        character = session.get(Character, id)
+        return character
+
+
+def delete_character(id: int) -> bool:
+    with Session(engine) as session:
+        count = session.query(Character).filter(Character.id == id).delete()
+        session.commit()
+        return count > 0
 
 
 def update_character(character: Character) -> None:
@@ -89,28 +94,21 @@ def update_character(character: Character) -> None:
         session.commit()
 
 
-def delete_character(id: int) -> None:
+def add_chat_message(chat_message: Chat) -> int:
     with Session(engine) as session:
-        character = session.get(Character, id)
-        session.delete(character)
+        session.add(chat_message)
         session.commit()
+        session.refresh(chat_message)
+    return chat_message.id
 
 
-def add_chat_message(chat_message: ChatMessage) -> int:
-    chat_obj = Chat.from_orm(chat_message)
+def get_chat_history(campaign_id: int) -> List[Chat]:
     with Session(engine) as session:
-        session.add(chat_obj)
-        session.commit()
-        session.refresh(chat_obj)
-    return chat_obj.id
-
-
-def get_chat_history(campaign_id: int) -> List[ChatMessage]:
-    with Session(engine) as session:
-        chat_messages = session.query(Chat).filter(Chat.campaign_id == campaign_id).all()
-        return [ChatMessage.from_orm(chat) for chat in chat_messages]
+        chat_messages = (
+            session.query(Chat).filter(Chat.campaign_id == campaign_id).all()
+        )
+        return chat_messages
 
 
 def main() -> None:
     SQLModel.metadata.create_all(engine)
-
