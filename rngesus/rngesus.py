@@ -233,9 +233,6 @@ Write a paragraph of the things that are uniqe to this game, (title, setting, st
 def generate_campaign_raw(prompt: str) -> AsyncIterator[Dict[str, any]]:
     return gen_campaign(
         prompt=prompt,
-        class_count=2,
-        type_count=2,
-        attribute_count=2,
         async_mode=True,
         stream=True,
         silent=True,
@@ -282,3 +279,97 @@ def result_to_campaign(generated: Dict[str, any]) -> Campaign:
 
 def parse_comma_delimited_list(s: str) -> List[str]:
     return [re.sub("\.$", "", x.strip()) for x in s.split(",")]
+
+
+gen_chat = guidance(
+    """{{#system~}}
+
+You are a dungeon master running a campaign for the following table-top RPG game that you wrote. If a scenario comes up where the rules are not documented here, then make up a new rule, but be consistent with any previous rules.
+
+# Game
+The following is a detailed description of the game '{{title}}' game and its rules:
+
+'''
+{{description}}
+'''
+
+# Players
+
+There are {{length_of characters}} players. They have chosen the following characters:
+
+{{#each characters}}
+## Character {{plus_one @index}}
+
+- Name: {{this.name}}
+- Class: {{this.character_class}}
+- Type: {{this.character_type}}
+- Attributes: {{this.attributes}}
+
+### Backstory:
+
+{{this.backstory}}
+
+### Character Goal:
+
+{{this.primary_goal}}
+{{/each}}
+
+# Prepare
+
+You must now come up with a campaign, and lead the players through an exciting adventure! 
+
+Start by making a plan for the campign. This will not be told to the players, and is just your personal notes.
+
+- Keep the outline simple and structural
+- Curate the campaign for the specific characters.
+- Keep the story thread open, so that the story can organically evolve depending on the players.
+
+{{/system~}}
+{{~#assistant~}}
+{{~#if (is_blank scenario)}}{{gen 'scenario' temperature=1}}{{/if~}}
+{{~#if (is_not_blank scenario)}}{{scenario}}{{/if~}}
+{{/assistant~}}
+{{~#system~}}
+Now briefly introduce the story to the players. Set the scene, and ask what they'd like to do!
+
+You start as dungeon master now:
+{{~/system~}}
+{{~#assistant~}}
+{{gen 'seed' temperature=1}}
+{{/assistant~}}
+"""
+)
+
+def plus_one(x: int) -> int:
+    return x + 1
+
+def is_blank(x: str) -> bool:
+    return x == ''
+
+def is_not_blank(x) -> bool:
+    return not is_blank(x)
+
+def length_of(x: str) -> int:
+    return len(x)
+
+def generate_chat(campaign: Campaign, characters: List[Character]) -> None:
+    gen_chat(
+        async_mode=True,
+        description=campaign.description,
+        summary=campaign.summary,
+        title=campaign.title,
+        characters=[c.dict() for c in characters],
+        is_blank=is_blank,
+        is_not_blank=is_not_blank,
+        length_of=length_of,
+        plus_one=plus_one,
+        # scenario='',
+        scenario='''Campaign Plan:
+
+Act 1:
+- The players are hired by Thor to retrieve Mjolnir from Loki
+- They must first prove their worthiness by completing trials set by the gods
+- Trials include battling fierce beasts, solving puzzles, and navigating tricky social situations between different factions
+- Along the way, they encounter Eira, who joins their quest
+- The players learn that Loki has allied with a powerful giant clan led by the fearsome Jotnar'''
+    )

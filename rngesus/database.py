@@ -75,6 +75,14 @@ def get_character_summaries(campaign_id: int) -> List[CharacterSummary]:
         return [character_summary(tuple) for tuple in tuples]
 
 
+def get_characters_in_campaign(campaign_id: int) -> List[Character]:
+    with Session(engine) as session:
+        characters = (
+            session.query(Character).filter(Character.campaign_id == campaign_id).all()
+        )
+        return characters
+
+
 def get_character(id: int) -> Optional[Character]:
     with Session(engine) as session:
         character = session.get(Character, id)
