@@ -275,12 +275,12 @@ The following is a detailed description of the game and its rules:
 
 ## Campaign
 
-You will come up with a unique campaign for the players. There are {{length_of characters}} players. They have chosen the following characters:
+You will come up with a unique campaign for the players. There are {{character_count}} players. They have chosen the following characters:
 
 {{#each characters}}
 ---
 
-## Character {{plus_one @index}}
+## Character {{add 1 @index}}
 
 - Name: {{this.name}}
 - Class: {{this.character_class}}
@@ -324,12 +324,12 @@ Now briefly introduce the story to the players. Set the scene, and ask what they
 You start as dungeon master now:
 {{~/system~}}
 {{#each previous_messages~}}
-{{#if is_assistant this.user_type}}
+{{#if (equal this.user_type "assistant")}}
 {{#assistant~}}
 {{this.message}}
 {{/assistant~}}
 {{/if~}}
-{{#if is_user this.user_type}}
+{{#if (equal this.user_type "user")}}
 {{#user~}}
 {{this.message}}
 {{/user~}}
@@ -337,33 +337,9 @@ You start as dungeon master now:
 {{/each~}}
 {{#assistant~}}
 {{gen 'next' temperature=1}}
-{{/assistant~}}
+{{/assistant}}
 """
 )
-
-
-def is_user(x: str) -> bool:
-    return x == "user"
-
-
-def is_assistant(x: str) -> bool:
-    return x == "assistant"
-
-
-def plus_one(x: int) -> int:
-    return x + 1
-
-
-def is_blank(x: str) -> bool:
-    return x == ""
-
-
-def is_not_blank(x) -> bool:
-    return not is_blank(x)
-
-
-def length_of(x: str) -> int:
-    return len(x)
 
 
 class ChatResult(BaseModel):
@@ -375,21 +351,19 @@ async def generate_chat_unthrottled(
     campaign: Campaign, characters: List[Character], history: List[Chat]
 ) -> AsyncIterator[ChatResult]:
     # guidance.llms.OpenAI.cache.clear()
+    kwargs = {
+        "description": campaign.description,
+        "summary": campaign.summary,
+        "title": campaign.title,
+        "scenario": campaign.scenario,
+        "characters": [c.dict() for c in characters],
+        "character_count": len(characters),
+        "previous_messages": [x.dict() for x in history],
+    }
     program = gen_chat(
         async_mode=True,
-        description=campaign.description,
-        summary=campaign.summary,
-        title=campaign.title,
-        scenario=campaign.scenario,
         # silent=True,
-        characters=[c.dict() for c in characters],
-        previous_messages=[x.dict() for x in history],
-        is_blank=is_blank,
-        is_not_blank=is_not_blank,
-        length_of=length_of,
-        plus_one=plus_one,
-        is_user=is_user,
-        is_assistant=is_assistant,
+        **kwargs
     )
     # return ChatResult(scenario=generated["scenario"] or "", assistant=generated["next"] or "")
     async for generated in program:
