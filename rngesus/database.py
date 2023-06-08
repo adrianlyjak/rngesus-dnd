@@ -96,24 +96,25 @@ def delete_character(id: int) -> bool:
         return count > 0
 
 
-def update_character(character: Character) -> None:
+def upsert_chat_message(chat: Chat) -> Chat:
     with Session(engine) as session:
-        session.add(character)
-        session.commit()
-
-
-def add_chat_message(chat_message: Chat) -> int:
-    with Session(engine) as session:
-        session.add(chat_message)
-        session.commit()
-        session.refresh(chat_message)
-    return chat_message.id
+        if chat.id:
+            session.query(Campaign).filter(Campaign.id == chat.id).update(chat.dict())
+            session.commit()
+        else:
+            session.add(chat)
+            session.commit()
+            session.refresh(chat)
+    return chat
 
 
 def get_chat_history(campaign_id: int) -> List[Chat]:
     with Session(engine) as session:
         chat_messages = (
-            session.query(Chat).filter(Chat.campaign_id == campaign_id).all()
+            session.query(Chat)
+            .filter(Chat.campaign_id == campaign_id)
+            .order_by(Chat.id)
+            .all()
         )
         return chat_messages
 

@@ -6,12 +6,14 @@ from sqlmodel import JSON, Column, Field, SQLModel
 
 class Campaign(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    title: str
-    description: str
-    summary: str
-    character_classes: List[str] = Field(sa_column=Column(JSON))
-    character_types: List[str] = Field(sa_column=Column(JSON))
-    attributes: List[str] = Field(sa_column=Column(JSON))
+    prompt: str = ''
+    title: str = ''
+    description: str = ''
+    summary: str = ''
+    character_classes: List[str] = Field(sa_column=Column(JSON), default=[])
+    character_types: List[str] = Field(sa_column=Column(JSON), default=[])
+    attributes: List[str] = Field(sa_column=Column(JSON), default=[])
+    scenario: str = ""
 
 
 CampaignSummaryTuple = [Campaign.id, Campaign.title, Campaign.summary]

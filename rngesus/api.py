@@ -1,105 +1,108 @@
-from typing import AsyncIterator, List
-from pydantic import BaseModel
-from fastapi.responses import StreamingResponse
-from fastapi import status
+from typing import AsyncIterator, List, TypeVar
 
-from .models import Campaign, CampaignSummary, Character, CharacterSummary
+from fastapi import status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from pydantic.generics import GenericModel, Generic
+
+from . import game
 from .app import app
-from . import database, rngesus
+from .models import Campaign, Character
+
+DataT = TypeVar("DataT")
 
 
 class CreateCampaign(BaseModel):
     description: str
 
 
-class CampaignSummaryList(BaseModel):
-    campaigns: List[CampaignSummary]
+class ListResponse(GenericModel, Generic[DataT]):
+    items: List[DataT]
 
-
-class CharacterSummaryList(BaseModel):
-    characters: List[CharacterSummary]
 
 class GenericResponse(BaseModel):
     status: str
 
 
-@app.get("/api/campaigns", response_model=CampaignSummaryList)
-def get_campaigns() -> CampaignSummaryList:
-    return CampaignSummaryList(campaigns=database.get_campaign_summaries())
+##########################
+## Campaigns
+@app.get("/api/campaigns", response_model=ListResponse)
+def get_campaigns() -> ListResponse:
+    return ListResponse(items=game.get_campaign_summaries())
 
 
 @app.post("/api/campaigns", response_class=StreamingResponse)
 async def create_campaign(request: CreateCampaign) -> StreamingResponse:
     return StreamingResponse(
-        content=generate_campaign_ndjson(request),
+        content=generate_nd_json(game.generate_campaign(request.description)),
         status_code=status.HTTP_200_OK,
         media_type="application/ndjson",
     )
 
 
-async def generate_campaign(request: CreateCampaign) -> AsyncIterator[CreateCampaign]:
-    campaign = None
-    program = rngesus.generate_campaign(request.description, update_frequency_seconds=1)
-    async for generated in program:
-        if campaign is None:
-            campaign = database.upsert_campaign(generated)
-        else:
-            generated.id = campaign.id
-            database.upsert_campaign(generated)
-            campaign = generated
-        yield campaign
-
-
-async def generate_campaign_ndjson(request: CreateCampaign) -> AsyncIterator[str]:
-    async for c in generate_campaign(request):
+async def generate_nd_json(iterator: AsyncIterator[BaseModel]) -> AsyncIterator[str]:
+    async for c in iterator:
         yield c.json() + "\n"
 
 
 @app.get("/api/campaigns/{campaign_id}", response_model=Campaign)
 def get_campaign(campaign_id: int) -> Campaign:
-    return database.get_campaign(campaign_id)
+    camp = game.get_campaign(campaign_id)
+    if camp is None:
+        return "Campaign not found", status.HTTP_404_NOT_FOUND
+    return camp
 
 
-@app.get("/api/characters", response_model=CharacterSummaryList)
-def get_characters(campaign_id: int) -> CharacterSummaryList:
-    return CharacterSummaryList(
-        characters=database.get_character_summaries(campaign_id)
-    )
+##########################
+## Characters
+@app.get("/api/characters", response_model=ListResponse)
+def get_characters(campaign_id: int) -> ListResponse:
+    return ListResponse(items=game.get_characters(campaign_id))
 
 
 @app.post("/api/characters", response_class=StreamingResponse)
 async def roll_character(campaign_id: int) -> StreamingResponse:
-    campaign = database.get_campaign(campaign_id)
-    if campaign is None:
+    result = await game.add_character(campaign_id)
+    if result is None:
         return "Campaign not found", status.HTTP_404_NOT_FOUND
     return StreamingResponse(
-        content=generate_character_ndjson(campaign),
+        content=generate_nd_json(result),
         status_code=status.HTTP_200_OK,
         media_type="application/ndjson",
     )
 
 
 @app.get("/api/characters/{character_id}", response_model=Character)
-def get_character(campaign_id: int, character_id: int) -> Character:
-    char = database.get_character(character_id)
+def get_character(character_id: int) -> Character:
+    char = game.get_character(character_id)
     if char is None:
         return "Character not found", status.HTTP_404_NOT_FOUND
     return char
 
+
 @app.delete("/api/characters/{character_id}", response_model=GenericResponse)
 def delete_character(character_id: int) -> GenericResponse:
-    deleted = database.delete_character(character_id)
+    deleted = game.delete_character(character_id)
     return GenericResponse(status="deleted" if deleted else "no_match")
 
-async def generate_character(campaign: Campaign) -> AsyncIterator[Character]:
-    char = None
-    async for c in rngesus.roll_character(campaign):
-        if char is not None:
-            c.id = char.id
-        char = database.upsert_character(c)
-        yield char
+
+##########################
+## Chat
 
 
-async def generate_character_ndjson(campaign_id: int) -> AsyncIterator[str]:
-    async for c in generate_character(campaign_id):
-        yield c.json() + "\n"
+@app.get("/api/chats", response_model=ListResponse)
+def get_chats(campaign_id: int) -> ListResponse:
+    return ListResponse(items=game.load_chats(campaign_id))
+
+
+@app.put("/api/campaigns/{campaign_id}/chat", response_class=StreamingResponse)
+def chat_resume(campaign_id: int, user_message: str | None = None) -> StreamingResponse:
+    return StreamingResponse(
+        content=generate_nd_json(
+            game.assistant_generate(campaign_id)
+            if user_message is None
+            else game.user_respond(campaign_id, user_message)
+        ),
+        status_code=status.HTTP_200_OK,
+        media_type="application/ndjson",
+    )

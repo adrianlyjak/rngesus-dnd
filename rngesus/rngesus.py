@@ -2,10 +2,13 @@ import os
 import random
 import re
 import time
-from typing import AsyncIterator, Dict, List
+from typing import AsyncIterator, Dict, List, TypeVar
 
 import guidance
 import openai
+from pydantic import BaseModel
+
+from rngesus.models import Chat
 
 from .database import Campaign, Character
 
@@ -17,15 +20,6 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 
 # set the default language model used to execute guidance programs
 guidance.llm = guidance.llms.OpenAI("gpt-3.5-turbo")
-
-
-def prompt(question: str) -> str:
-    print(f"requesting question '{question}'")
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", messages=[{"role": "user", "content": question}]
-    )
-    print(f"response: {response.choices[0].message.content}")
-    return response.choices[0].message.content
 
 
 gen_char = guidance(
@@ -66,7 +60,8 @@ Concisely in a single sentence, what's the characters primary story goal?
 {{gen 'primary_goal' max_tokens=100 temperature=0.9}}
 {{/assistant~}}
 {{#user~}}
-Now, assign attribute scores between 1 and 20 (inclusive) for all attributes: {{attributes}}
+Now, assign attribute scores between 1 and 20 (inclusive) for all attributes: {{attributes}}.
+Remember to give characters high enough scores to have niches skills on the team, but low enough to leave room for growth.
 
 Respond as a comma delimited list with colons indicating the attributes score. Use no other punctuation.
 
@@ -103,17 +98,10 @@ async def roll_character(
         character_type=character_type,
         async_mode=True,
         stream=True,
-        silent=True,
+        silent=False,
     )
-    result = None
-    last = None
-    async for state in program:
-        result = result_to_character(campaign.id, state)
-        now = time.time()
-        if last is None or now - last > update_frequency_seconds:
-            last = now
-            yield result
-    yield result
+    async for state in throttle(program, update_frequency_seconds):
+        yield result_to_character(campaign.id, state)
 
 
 def result_to_character(campaign_id: int, program: Dict[str, any]) -> Character:
@@ -159,13 +147,13 @@ Create a game according to this premise:
 First, give the game an exciting title!
 {{~/user~}}
 {{~#assistant~}}
-{{gen 'title' temperature=1 max_tokens=20}}
+{{~#if title}}{{title}}{{else}}{{gen 'title' temperature=1 max_tokens=20}}{{/if}}
 {{~/assistant~}}
 {{~#user~}}
 Give us a quick elevator pitch!
 {{~/user~}}
 {{~#assistant~}}
-{{gen 'description' temperature=1}}
+{{~#if description}}{{description}}{{else}}{{gen 'description' temperature=1}}{{/if}}
 {{~/assistant~}}
 {{~#user~}}
 Does the game have any character classes?
@@ -174,7 +162,7 @@ Respond with between 1 and 8 classes.
 For example: "Attorney, Designer, Janitor"
 {{~/user~}}
 {{~#assistant~}}
-{{gen 'character_classes' max_tokens=30 temperature=0.3}}
+{{~#if character_classes}}{{character_classes}}{{else}}{{gen 'character_classes' max_tokens=30 temperature=0.3}}{{/if}}
 {{~/assistant~}}
 {{#user~}}
 Who are the types of people in this story and where do they come from? Describe the socio-ethnic types in the game. Whatever fits the story. 
@@ -184,7 +172,7 @@ Respond with ONLY a comma delimited list of the types.
 For example: "Human, Half-Alien, Sentient Printer"
 {{/user~}}
 {{#assistant~}}
-{{gen 'character_types' max_tokens=30 temperature=0.3}}
+{{~#if character_types}}{{character_types}}{{else}}{{gen 'character_types' max_tokens=30 temperature=0.3}}{{/if}}
 {{/assistant~}}
 {{#user~}}
 What are the attributes in the game? Whatever fits the story.
@@ -193,88 +181,79 @@ Respond with between 1 and 8 attributes.
 For example: "Power, Influence, Magic, Luck, Flexibility"
 {{/user~}}
 {{#assistant~}}
-{{gen 'character_attributes' max_tokens=50 temperature=0.3}}
+{{~#if character_attributes}}{{character_attributes}}{{else}}{{gen 'character_attributes' max_tokens=30 temperature=0.3}}{{/if}}
 {{/assistant~}}
 {{#user~}}
 What's the hook. Tell me about the game world, and the story intrigue.
 Get specific. Tell me details about how the story starts: an intriguing scene or incident.
 {{/user~}}
 {{#assistant~}}
-{{gen 'story' temperature=0.9}}
+{{~#if story}}{{story}}{{else}}{{gen 'story' temperature=0.9}}{{/if}}
 {{/assistant~}}
 {{#user~}}
 What are the mechanics? I want to know what makes this game unique from other RPGs! 
 
 Get specific. How do players affect the game?
 Feel free to make up new rules that go beyond the standards of the genre.
+The game can only use standard tools available at a table-top: pencil, paper, dice, and a big imagination.
 {{/user~}}
 {{#assistant~}}
-{{gen 'mechanics' temperature=0.9}}
+{{~#if mechanics}}{{mechanics}}{{else}}{{gen 'mechanics' temperature=0.9}}{{/if}}
 {{/assistant~}}
-{{#geneach 'mechanics_continued' num_iterations=3}}
 {{#user~}}
-continue
+Write a reminder that can later be referred to in order to remember this game. No more than a paragraph, and focus on things that are unique to this game: title, setting, story, mechanics.
 {{/user~}}
 {{#assistant~}}
-{{gen 'this' temperature=0.9}}
-{{/assistant~}}
-{{/geneach}}
-{{#user~}}
-Write a reminder that can later be referred to in order to remember this game.
-Write a paragraph of the things that are uniqe to this game, (title, setting, story, mechanics)
-{{/user~}}
-{{#assistant~}}
-{{gen 'summary' temperature=0.9}}
+{{~#if summary}}{{summary}}{{else}}{{gen 'summary' temperature=0.9}}{{/if}}
 {{/assistant~}}
 '''
 )
 
 
-def generate_campaign_raw(prompt: str) -> AsyncIterator[Dict[str, any]]:
-    return gen_campaign(
-        prompt=prompt,
-        async_mode=True,
-        stream=True,
-        silent=True,
-    )
+def generate_campaign_raw(**kwargs) -> AsyncIterator[Dict[str, any]]:
+    return gen_campaign(async_mode=True, stream=True, silent=False, **kwargs)
+
+
+def generate_new_campaign(
+    prompt: str,
+    update_frequency_seconds: int = 5,
+) -> AsyncIterator[Campaign]:
+    return generate_campaign(Campaign(prompt=prompt), update_frequency_seconds)
 
 
 async def generate_campaign(
-    prompt: str, update_frequency_seconds: int = 5
+    campaign: Campaign, update_frequency_seconds: int = 5
 ) -> AsyncIterator[Campaign]:
-    generator = generate_campaign_raw(prompt)
-    last = None
-    result = None
-    async for generated in generator:
-        result = result_to_campaign(generated)
-        now = time.time()
-        if last is None or (now - last > update_frequency_seconds):
-            last = now
-            yield result
-    yield result
-
-
-def result_to_campaign(generated: Dict[str, any]) -> Campaign:
-    return Campaign(
-        title=(generated.get("title") or "").replace('"', ""),
-        description=(generated.get("description") or "").replace('"', "")
-        + "\n"
-        + (generated.get("story") or "")
-        + "\n"
-        + (generated.get("mechanics") or "")
-        + "\n"
-        + "\n".join(generated.get("mechanics_continued") or []),
-        summary=(generated.get("summary") or ""),
-        character_classes=parse_comma_delimited_list(
-            (generated.get("character_classes") or "")
-        ),
-        character_types=parse_comma_delimited_list(
-            (generated.get("character_types") or "")
-        ),
-        attributes=parse_comma_delimited_list(
-            (generated.get("character_attributes") or "")
-        ),
-    )
+    description_parts = campaign.description.split("\n---\n")
+    kwargs = {
+        "prompt": campaign.prompt,
+        "title": campaign.title,
+        "description": "".join(description_parts[0:1]),
+        "character_classes": ", ".join(campaign.character_classes),
+        "character_types": ", ".join(campaign.character_types),
+        "character_attributes": ", ".join(campaign.attributes),
+        "story": "".join(description_parts[1:2]),
+        "mechanics": "".join(description_parts[2:3]),
+        "summary": campaign.summary,
+    }
+    async for generated in throttle(generate_campaign_raw(**kwargs)):
+        merged = {k: v if v else generated.get(k) or "" for k, v in kwargs.items()}
+        yield Campaign(
+            id=campaign.id,
+            prompt=campaign.prompt,
+            title=(merged["title"]).replace('"', ""),
+            description="\n---\n".join(
+                [
+                    merged["description"].replace('"', ""),
+                    merged["story"],
+                    merged["mechanics"],
+                ]
+            ),
+            summary=(merged["summary"]),
+            character_classes=parse_comma_delimited_list((merged["character_classes"])),
+            character_types=parse_comma_delimited_list((merged["character_types"])),
+            attributes=parse_comma_delimited_list((merged["character_attributes"])),
+        )
 
 
 def parse_comma_delimited_list(s: str) -> List[str]:
@@ -282,22 +261,25 @@ def parse_comma_delimited_list(s: str) -> List[str]:
 
 
 gen_chat = guidance(
-    """{{#system~}}
+    """
+{{#system~}}
+# RPG Game
 
-You are a dungeon master running a campaign for the following table-top RPG game that you wrote. If a scenario comes up where the rules are not documented here, then make up a new rule, but be consistent with any previous rules.
+You are a dungeon master running a campaign for a table-top RPG game called "{{title}}" 
 
-# Game
-The following is a detailed description of the game '{{title}}' game and its rules:
+The following is a detailed description of the game and its rules:
 
 '''
 {{description}}
 '''
 
-# Players
+## Campaign
 
-There are {{length_of characters}} players. They have chosen the following characters:
+You will come up with a unique campaign for the players. There are {{length_of characters}} players. They have chosen the following characters:
 
 {{#each characters}}
+---
+
 ## Character {{plus_one @index}}
 
 - Name: {{this.name}}
@@ -316,60 +298,130 @@ There are {{length_of characters}} players. They have chosen the following chara
 
 # Prepare
 
-You must now come up with a campaign, and lead the players through an exciting adventure! 
+Now, come up with a campaign
 
-Start by making a plan for the campign. This will not be told to the players, and is just your personal notes.
+Start by making a short plan for the game
 
+- Be concise
+- This will not be told to the players, and is just your personal notes
 - Keep the outline simple and structural
-- Curate the campaign for the specific characters.
-- Keep the story thread open, so that the story can organically evolve depending on the players.
+- Curate the story for the specific characters above
+- Keep the story thread open, so that the story can organically evolve depending on the players actions
 
 {{/system~}}
 {{~#assistant~}}
-{{~#if (is_blank scenario)}}{{gen 'scenario' temperature=1}}{{/if~}}
-{{~#if (is_not_blank scenario)}}{{scenario}}{{/if~}}
+{{~#if scenario}}{{gen 'scenario' temperature=1}}{{else}}{{scenario}}{{/if~}}
 {{/assistant~}}
 {{~#system~}}
+Remember, as Dungeon master:
+- If a scene requires resolution, use the character's attributes, and a little bit of randomness! If there's a random number or die roll required, roll a die and include the result in your response!
+- If a scenario comes up where the rules are not documented here, then make up a new rule. Just explain the rule to the players, and be consistent with any previous rules.
+- Work with the characters, a game that grows organically with the player's curiosity and interests is more exciting. You can make new things up.
+- Be consistent
+
 Now briefly introduce the story to the players. Set the scene, and ask what they'd like to do!
 
 You start as dungeon master now:
 {{~/system~}}
-{{~#assistant~}}
-{{gen 'seed' temperature=1}}
+{{#each previous_messages~}}
+{{#if is_assistant this.user_type}}
+{{#assistant~}}
+{{this.message}}
+{{/assistant~}}
+{{/if~}}
+{{#if is_user this.user_type}}
+{{#user~}}
+{{this.message}}
+{{/user~}}
+{{/if~}}
+{{/each~}}
+{{#assistant~}}
+{{gen 'next' temperature=1}}
 {{/assistant~}}
 """
 )
 
+
+def is_user(x: str) -> bool:
+    return x == "user"
+
+
+def is_assistant(x: str) -> bool:
+    return x == "assistant"
+
+
 def plus_one(x: int) -> int:
     return x + 1
 
+
 def is_blank(x: str) -> bool:
-    return x == ''
+    return x == ""
+
 
 def is_not_blank(x) -> bool:
     return not is_blank(x)
 
+
 def length_of(x: str) -> int:
     return len(x)
 
-def generate_chat(campaign: Campaign, characters: List[Character]) -> None:
-    gen_chat(
+
+class ChatResult(BaseModel):
+    scenario: str
+    assistant: str
+
+
+async def generate_chat_unthrottled(
+    campaign: Campaign, characters: List[Character], history: List[Chat]
+) -> AsyncIterator[ChatResult]:
+    # guidance.llms.OpenAI.cache.clear()
+    program = gen_chat(
         async_mode=True,
         description=campaign.description,
         summary=campaign.summary,
         title=campaign.title,
+        scenario=campaign.scenario,
+        # silent=True,
         characters=[c.dict() for c in characters],
+        previous_messages=[x.dict() for x in history],
         is_blank=is_blank,
         is_not_blank=is_not_blank,
         length_of=length_of,
         plus_one=plus_one,
-        # scenario='',
-        scenario='''Campaign Plan:
-
-Act 1:
-- The players are hired by Thor to retrieve Mjolnir from Loki
-- They must first prove their worthiness by completing trials set by the gods
-- Trials include battling fierce beasts, solving puzzles, and navigating tricky social situations between different factions
-- Along the way, they encounter Eira, who joins their quest
-- The players learn that Loki has allied with a powerful giant clan led by the fearsome Jotnar'''
+        is_user=is_user,
+        is_assistant=is_assistant,
     )
+    # return ChatResult(scenario=generated["scenario"] or "", assistant=generated["next"] or "")
+    async for generated in program:
+        yield ChatResult(
+            scenario=generated["scenario"] or "", assistant=generated["next"] or ""
+        )
+
+
+async def generate_chat(
+    campaign: Campaign, characters: List[Character], history: List[Chat]
+) -> AsyncIterator[ChatResult]:
+    async for generated in throttle(
+        await generate_chat_unthrottled(campaign, characters, history)
+    ):
+        yield ChatResult(
+            scenario=generated["scenario"] or "", assistant=generated["next"] or ""
+        )
+
+
+T = TypeVar("T")
+
+
+async def throttle(
+    iterator: AsyncIterator[T], update_frequency_seconds: int = 1
+) -> AsyncIterator[T]:
+    last = None
+    result = None
+    async for generated in iterator:
+        result = generated
+        now = time.time()
+        if last is None or (now - last > update_frequency_seconds):
+            last = now
+            yield result
+    if result:
+        yield result
