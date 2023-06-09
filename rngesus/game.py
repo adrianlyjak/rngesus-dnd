@@ -92,16 +92,14 @@ def load_chat_state(campaign_id: int) -> ChatState:
 
 async def assistant_generate(campaign_id: int) -> AsyncIterator[Chat]:
     state = load_chat_state(campaign_id)
-    print(
-        "load state",
-    )
     assistant: Chat | None = None
     async for resp in rngesus.generate_chat(
         state.campaign, state.characters, state.dialog
     ):
-        print("resp generated")
         if state.campaign.scenario != resp.scenario:
             state.campaign.scenario = resp.scenario
+            print("camp " + str(state.campaign))
+            print(state.campaign.scenario)
             database.upsert_campaign(state.campaign)
         print(resp.scenario, resp.assistant)
         if resp.assistant:
@@ -114,11 +112,10 @@ async def assistant_generate(campaign_id: int) -> AsyncIterator[Chat]:
             assistant.message = resp.assistant
             database.upsert_chat_message(assistant)
             yield assistant
-    print("done")
 
 
-async def user_respond(campaign_id: int, message: str) -> AsyncIterator[Chat]:
+def user_respond(campaign_id: int, message: str) -> AsyncIterator[Chat]:
     database.upsert_chat_message(
         Chat(campaign_id=campaign_id, user_type="user", message=message)
     )
-    assistant_generate(campaign_id)
+    return assistant_generate(campaign_id)

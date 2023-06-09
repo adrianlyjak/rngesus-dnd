@@ -362,25 +362,22 @@ async def generate_chat_unthrottled(
     }
     program = gen_chat(
         async_mode=True,
-        # silent=True,
+        stream=True,
+        silent=True,
         **kwargs
     )
     # return ChatResult(scenario=generated["scenario"] or "", assistant=generated["next"] or "")
     async for generated in program:
         yield ChatResult(
-            scenario=generated["scenario"] or "", assistant=generated["next"] or ""
+            scenario=generated.get("scenario") or "",
+            assistant=generated.get("next") or "",
         )
 
 
-async def generate_chat(
+def generate_chat(
     campaign: Campaign, characters: List[Character], history: List[Chat]
 ) -> AsyncIterator[ChatResult]:
-    async for generated in throttle(
-        await generate_chat_unthrottled(campaign, characters, history)
-    ):
-        yield ChatResult(
-            scenario=generated["scenario"] or "", assistant=generated["next"] or ""
-        )
+    return throttle(generate_chat_unthrottled(campaign, characters, history))
 
 
 T = TypeVar("T")
