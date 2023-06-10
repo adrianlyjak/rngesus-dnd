@@ -96,7 +96,8 @@ async def assistant_generate(campaign_id: int) -> AsyncIterator[Chat]:
     async for resp in rngesus.generate_chat(
         state.campaign, state.characters, state.dialog
     ):
-        if state.campaign.scenario != resp.scenario:
+        if state.campaign.scenario != resp.scenario and resp.scenario:
+            print(f"resp.scenario '{resp.scenario}' {type(resp.scenario)}")
             state.campaign.scenario = resp.scenario
             print("camp " + str(state.campaign))
             print(state.campaign.scenario)

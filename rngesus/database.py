@@ -15,7 +15,9 @@ from .models import (
     character_summary,
 )
 
-engine = create_engine("sqlite:///rngesus.db", echo=True)
+from . import config
+
+engine = create_engine("sqlite:///rngesus.db", echo=config.VERBOSE_DATABASE)
 
 
 def upsert_campaign(campaign: Campaign) -> Campaign:
@@ -99,7 +101,7 @@ def delete_character(id: int) -> bool:
 def upsert_chat_message(chat: Chat) -> Chat:
     with Session(engine) as session:
         if chat.id:
-            session.query(Campaign).filter(Campaign.id == chat.id).update(chat.dict())
+            session.query(Chat).filter(Chat.id == chat.id).update(chat.dict())
             session.commit()
         else:
             session.add(chat)
