@@ -77,10 +77,25 @@ def get_character_summaries(campaign_id: int) -> List[CharacterSummary]:
         return [character_summary(tuple) for tuple in tuples]
 
 
-def get_characters_in_campaign(campaign_id: int) -> List[Character]:
+def activate_character(character_id: int, time: int) -> None:
+    with Session(engine) as session:
+        character = session.get(Character, character_id)
+        character.activated = time
+        session.commit()
+
+def deactivate_character(character_id: int) -> None:
+    with Session(engine) as session:
+        character = session.get(Character, character_id)
+        character.activated = None
+        session.commit()
+
+def get_active_characters_in_campaign(campaign_id: int) -> List[Character]:
     with Session(engine) as session:
         characters = (
-            session.query(Character).filter(Character.campaign_id == campaign_id).all()
+            session.query(Character)
+            .filter(Character.campaign_id == campaign_id)
+            .where(Character.activated != None)
+            .all()
         )
         return characters
 

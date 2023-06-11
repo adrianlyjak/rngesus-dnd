@@ -1,3 +1,5 @@
+import datetime
+import time
 from typing import AsyncIterator, List
 
 from fastapi import status
@@ -12,6 +14,9 @@ from .models import Campaign, CampaignSummary, Character, CharacterSummary, Chat
 ## Campaign CRUD ##
 def get_campaign_summaries() -> List[CampaignSummary]:
     return database.get_campaign_summaries()
+
+def get_active_characters(campaign_id: int) -> List[Character]:
+    return database.get_active_characters_in_campaign(campaign_id)
 
 
 def get_campaign(campaign_id: int) -> Campaign | None:
@@ -41,17 +46,23 @@ async def generate_campaign(description: str) -> AsyncIterator[Campaign]:
 ## Character CRUD ##
 
 
-def get_characters(campaign_id: int) -> List[CharacterSummary]:
+def get_character_summaries(campaign_id: int) -> List[CharacterSummary]:
     return database.get_character_summaries(campaign_id)
 
 
 async def add_character(campaign_id: int) -> None | AsyncIterator[Character]:
     campaign = database.get_campaign(campaign_id)
+    characters = database.get_character_summaries(campaign_id)
     if campaign is None:
         return None
     else:
-        return _generate_character(campaign)
+        return _generate_character(campaign, characters)
+    
+def activate_character(character_id: int) -> None:
+    database.activate_character(character_id, time.time_ns() // 1000000)
 
+def deactivate_character(character_id: int) -> None:
+    database.deactivate_character(character_id)
 
 def get_character(character_id: int) -> Character | None:
     return database.get_character(character_id)
@@ -61,12 +72,13 @@ def delete_character(character_id: int) -> bool:
     return database.delete_character(character_id)
 
 
-async def _generate_character(campaign: Campaign) -> AsyncIterator[Character]:
+async def _generate_character(campaign: Campaign, characters: List[CharacterSummary]) -> AsyncIterator[Character]:
     char = None
-    async for c in rngesus.roll_character(campaign):
-        if char is not None:
-            c.id = char.id
-        char = database.upsert_character(c)
+    async for c in rngesus.roll_character(campaign, characters):
+        char = c
+        yield char
+    if char is not None:
+        char = database.upsert_character(char)
         yield char
 
 
@@ -85,7 +97,7 @@ def load_chats(campaign_id: int) -> List[Chat]:
 
 def load_chat_state(campaign_id: int) -> ChatState:
     camp = database.get_campaign(campaign_id)
-    characters = database.get_characters_in_campaign(campaign_id)
+    characters = database.get_active_characters_in_campaign(campaign_id)
     dialog = database.get_chat_history(campaign_id)
     return ChatState(campaign=camp, characters=characters, dialog=dialog)
 

@@ -46,23 +46,6 @@ You will come up with a unique campaign for the players. There are {{character_c
 {{this.primary_goal}}
 {{/each}}
 
-# Prepare
-
-Now, come up with a campaign
-
-Start by making a short plan for the game
-
-- Be concise
-- This will not be told to the players, and is just your personal notes
-- Keep the outline simple and structural
-- Curate the story for the specific characters above
-- Keep the story thread open, so that the story can organically evolve depending on the players actions
-
-{{/system~}}
-{{~#assistant~}}
-{{~#if scenario}}{{gen 'scenario' temperature=1}}{{else}}{{scenario}}{{/if~}}
-{{/assistant~}}
-{{~#system~}}
 Remember, as Dungeon master:
 - If a scene requires resolution, use the character's attributes and die rolls to resolve it. Vary the size and quantity of the dice depending on the situation, and modify the results based on the size of the characters attributes. Include the math and the result of the roll in your response.
 - NPCs have attributes too. Use their attributes in any equations, but don't reveal their rolls or attributes to the players.
@@ -93,6 +76,26 @@ You start as dungeon master now:
 """
 )
 
+
+outakes = """
+# Prepare
+
+Now, come up with a campaign
+
+Start by making a short plan for the game
+
+- Be concise
+- This will not be told to the players, and is just your personal notes
+- Keep the outline simple and structural
+- Curate the story for the specific characters above
+- Keep the story thread open, so that the story can organically evolve depending on the players actions
+
+{{/system~}}
+{{~#assistant~}}
+{{~#if scenario}}{{gen 'scenario' temperature=1}}{{else}}{{scenario}}{{/if~}}
+{{/assistant~}}
+{{~#system~}}
+"""
 
 class ChatResult(BaseModel):
     scenario: str

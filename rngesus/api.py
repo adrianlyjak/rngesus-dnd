@@ -57,7 +57,7 @@ def get_campaign(campaign_id: int) -> Campaign:
 ## Characters
 @app.get("/api/characters", response_model=ListResponse)
 def get_characters(campaign_id: int) -> ListResponse:
-    return ListResponse(items=game.get_characters(campaign_id))
+    return ListResponse(items=game.get_character_summaries(campaign_id))
 
 
 @app.post("/api/characters", response_class=StreamingResponse)

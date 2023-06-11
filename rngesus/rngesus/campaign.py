@@ -73,9 +73,11 @@ Get specific. Tell me details about how the story starts: an intriguing scene or
 {{#user~}}
 What are the mechanics? I want to know what makes this game unique from other RPGs! 
 
-Get specific. How do players affect the game?
-Feel free to make up new rules that go beyond the standards of the genre.
-The game can only use standard tools available at a table-top: pencil, paper, dice, and a big imagination.
+- Get specific. How do players affect the game?
+- Feel free to make up new rules that go beyond the standards of the genre.
+- The game can only use standard tools available at a table-top: attributes, scores, dice, and a big imagination.
+- You have as many dice as you want available to you: D4, D6, D8, D10, D12, D20, D100.
+- For each mechanic, give an example. Include any calculations, such as dice roles, modifiers, etc.
 {{/user~}}
 {{#assistant~}}
 {{~#if mechanics}}{{mechanics}}{{else}}{{gen 'mechanics' temperature=0.9}}{{/if}}
@@ -84,7 +86,7 @@ The game can only use standard tools available at a table-top: pencil, paper, di
 Write a reminder that can later be referred to in order to remember this game. No more than a paragraph, and focus on things that are unique to this game: title, setting, story, mechanics.
 {{/user~}}
 {{#assistant~}}
-{{~#if summary}}{{summary}}{{else}}{{gen 'summary' temperature=0.9}}{{/if}}
+{{~#if summary}}{{summary}}{{else}}{{gen 'summary' temperature=0.3}}{{/if}}
 {{/assistant~}}
 '''
 )
