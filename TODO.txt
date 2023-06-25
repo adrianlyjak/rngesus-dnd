@@ -1,0 +1,29 @@
+Game
+- add die role calculator
+- add game rules search and query
+- add historical summarization and query
+- handle character add/removal
+- updateable state (inventory, attributes)
+- figure out how to handle openai error with response streaming
+- better attribute generation
+- 
+
+Platform
+- user segmentation
+- sign-up/invite
+- billing
+
+Interface
+- campaign List
+- campaign view
+  - character tabs
+  - chat tabs
+  - game tab
+- Edit campaign/Character
+
+Technical
+- add type checking
+- add formatter checking
+- add database migrations
+- asyncify all the things
+
