@@ -1,15 +1,11 @@
 ---
----
+import CampaignList from "../components/CampaignList.astro"
+import ContainerComponent from "../components/ContainerComponent.astro"
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{import.meta.env.PUBLIC_API_URL}</title>
-	</head>
-	<body>
-		<h1>{import.meta.env.PUBLIC_API_URL}</h1>
-	</body>
-</html>
+export const prerender = false;
+
+
+---
+<ContainerComponent>
+	<CampaignList />
+</ContainerComponent>

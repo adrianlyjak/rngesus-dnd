@@ -10,7 +10,7 @@ class Campaign(SQLModel, table=True):
     prompt: str = ''
     title: str = ''
     description: str = ''
-    summary: str = ''
+    summary: Optional[str] = ''
     character_classes: List[str] = Field(sa_column=Column(JSON), default=[])
     character_types: List[str] = Field(sa_column=Column(JSON), default=[])
     attributes: List[str] = Field(sa_column=Column(JSON), default=[])
@@ -22,7 +22,7 @@ CampaignSummaryTuple = [Campaign.id, Campaign.title, Campaign.summary]
 class CampaignSummary(BaseModel):
     id: int
     title: str
-    summary: str
+    summary: Optional[str] = ''
 
 def campaign_summary(tuple: Tuple[int, str, str]) -> CampaignSummary:
     return CampaignSummary(id=tuple[0], title=tuple[1], summary=tuple[2])

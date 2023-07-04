@@ -1,0 +1,33 @@
+---
+import { getCampaigns, CampaignSummaryList } from "../api/api";
+import Card from "./Card.astro";
+
+const campaigns: CampaignSummaryList = await getCampaigns();
+---
+
+{
+  campaigns.items.map((c) => {
+    return (
+      <Card>
+        <div>
+          <strong>ID: </strong>
+          {c.id}
+        </div>
+        {(c.title && (
+          <div>
+            <strong>Name: </strong>
+            {c.title}
+          </div>
+        )) ||
+          null}
+        {(c.summary && (
+          <div>
+            <strong>Summary: </strong>
+            {c.summary}
+          </div>
+        )) ||
+          null}
+      </Card>
+    );
+  })
+}

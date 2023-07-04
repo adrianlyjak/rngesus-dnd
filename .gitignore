@@ -5,3 +5,5 @@ __pycache__
 
 # where are these files coming from??
 log.txt
+node_modules
+.pnpm-store
